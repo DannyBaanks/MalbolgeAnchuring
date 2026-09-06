@@ -32,6 +32,9 @@ _ENCRYPT = {ord(o): ord(t) for o, t in zip(_ORIGINAL, _TRANSLATED)}
 
 EOF_VALUE = 59048
 
+# The eight instructions of Classic Malbolge, as decoded by (cell + pos) % 94.
+_VALID_OPS = frozenset({4, 5, 23, 39, 40, 62, 68, 81})
+
 
 def crazy(a: int, b: int) -> int:
     """The tritwise 'crazy' operation over exactly 10 trits."""
@@ -46,14 +49,29 @@ def crazy(a: int, b: int) -> int:
 
 
 def load_memory(source: str) -> list[int]:
-    """Load a program: strip whitespace, require printable chars, then fill
-    every remaining cell deterministically with the crazy chain."""
+    """Load a program: strip whitespace, then apply the classic load-time
+    validation before filling every remaining cell deterministically with
+    the crazy chain.
+
+    Classic validation, both checks of the original 1998 loader:
+      - every program char must be printable ASCII (33..126), and
+      - at its load position it must decode to a valid instruction, i.e.
+        (ord(ch) + pos) % 94 must be one of the eight ops.
+    A program longer than MEMORY_SIZE cells (after whitespace stripping) is
+    rejected outright, as the original does."""
     chars = [c for c in source if not c.isspace()]
+    if len(chars) > MEMORY_SIZE:
+        raise ValueError(
+            f"program too long: {len(chars)} cells (max {MEMORY_SIZE})")
     mem = [0] * MEMORY_SIZE
     for i, ch in enumerate(chars):
         v = ord(ch)
         if not 33 <= v <= 126:
             raise ValueError(f"invalid source character {v!r} at position {i}")
+        if (v + i) % 94 not in _VALID_OPS:
+            raise ValueError(
+                f"cell {i}: {ch!r} does not decode to a valid instruction "
+                f"(({(v)} + {i}) % 94 = {(v + i) % 94})")
         mem[i] = v
     for i in range(len(chars), MEMORY_SIZE):
         mem[i] = crazy(mem[i - 1], mem[i - 2])

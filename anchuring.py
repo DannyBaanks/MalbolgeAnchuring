@@ -102,6 +102,9 @@ def verify(manifest: dict) -> list[str]:
         if i > 0 and sha256_hex(stdin_bytes) != prev_out:
             problems.append(f"link {i}: stdin does not match sealed stdout "
                             f"of link {i - 1}")
+        recorded_stdout = bytes.fromhex(link["stdout_hex"])
+        if sha256_hex(recorded_stdout) != link["stdout_sha256"]:
+            problems.append(f"link {i}: recorded stdout fails its own seal")
         status, steps, stdout = malbolge.run(
             source, stdin_data=stdin_bytes, max_steps=link["fuel"])
         if status != link["status"] or steps != link["steps"]:
@@ -109,6 +112,8 @@ def verify(manifest: dict) -> list[str]:
                             f"({status}/{steps} vs {link['status']}/{link['steps']})")
         if sha256_hex(stdout) != link["stdout_sha256"]:
             problems.append(f"link {i}: replayed stdout fails the seal")
+        if stdout != recorded_stdout:
+            problems.append(f"link {i}: replayed stdout differs byte-for-byte")
         prev_out = link["stdout_sha256"]
     return problems
 
@@ -123,6 +128,20 @@ def tamper_demo(manifest: dict) -> None:
         print("1-bit tampered payload was ACCEPTED — this must never happen")
         sys.exit(1)
     print(f"1-bit tampered payload ({bytes(payload)!r}) -> REJECTED")
+
+    # Second attack class: rewrite ONLY the recorded stdout_hex, leaving the
+    # seal untouched. Before v1.1 the replay alone could still pass; now the
+    # recorded bytes must match their own seal AND the replayed bytes.
+    tampered = json.loads(json.dumps(manifest))
+    hexed = bytearray.fromhex(tampered["links"][0]["stdout_hex"])
+    hexed[0] ^= 0x01
+    tampered["links"][0]["stdout_hex"] = hexed.hex()
+    problems = verify(tampered)
+    if not problems:
+        print("edited stdout_hex went UNNOTICED by verify — must never happen")
+        sys.exit(1)
+    print(f"stdout_hex edited without re-sealing -> verify REJECTS "
+          f"({problems[0]})")
 
 
 def main() -> int:

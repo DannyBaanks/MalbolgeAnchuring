@@ -42,3 +42,8 @@ acceptance: one flipped bit anywhere ends the check.
   program text at every link. Only bytes travel.
 - Timestamps (`created_utc`) are the only intentionally non-reproducible
   field; all execution fields are deterministic.
+- The seals provide **integrity**, not **authenticity**: they detect any
+  change that leaves the seals stale, but anyone who can replace a payload
+  *and* its seal can mint a different self-consistent manifest. For
+  authenticity the manifest (or a root hash of it) would need a signature,
+  e.g. Ed25519 — deliberately out of scope for this format.

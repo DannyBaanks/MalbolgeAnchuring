@@ -1,8 +1,8 @@
-# malbolge-anchuring
+# Malbolge Anchuring
 
-Certified state transfer between finite Malbolge processes. Run one program
-to its halt, seal its output with SHA-256, and feed those bytes to the next
-program — but only if the seal matches, bit for bit.
+Hash-linked deterministic transfer between finite Malbolge processes. Run one
+program to its halt, seal its output with SHA-256, and feed those bytes to
+the next program — but only if the seal matches, bit for bit.
 
 ```
 hello.mal  ──run──▶  "Hello World!"  ──seal──▶  sha256
@@ -44,6 +44,7 @@ py anchuring.py tamper-demo fixtures/chain_demo.json
 ```
 sealed payload: b'Hello World!'
 1-bit tampered payload (b'Iello World!') -> REJECTED
+stdout_hex edited without re-sealing -> verify REJECTS (link 0: recorded stdout fails its own seal)
 ```
 
 Python 3.10+. No dependencies.
@@ -90,11 +91,24 @@ Python 3.10+. No dependencies.
 - **It is not multi-interpreter arbitrage.** One reference interpreter is
   included so results are reproducible out of the box; checking the same
   fixtures against other implementations is left to the reader.
+- **The seals give integrity, not authenticity.** SHA-256 detects any change
+  that does not update the corresponding seal — but an attacker who can
+  rewrite a manifest wholesale can replace both payload and hash and mint a
+  different, self-consistent manifest. That is why the precise term is
+  *hash-linked deterministic transfer*, not "certified". If "certified" ever
+  needs to mean "produced by X and substitutable by no one", the manifest
+  (or a root hash of it) must be *signed*, e.g. with Ed25519. Deliberately
+  out of scope here.
 
 ## Semantics notes
 
 - Classic Malbolge, 59049 cells, 10-trit `crazy`/`rotate`, self-encryption
   after each executed instruction.
+- The loader enforces the original 1998 load-time validation: every program
+  char must be printable ASCII *and*, at its load position, must decode to
+  one of the eight instructions (`(ord(ch) + pos) % 94 ∈
+  {4, 5, 23, 39, 40, 62, 68, 81}`); programs longer than 59049 cells are
+  rejected outright.
 - On end-of-input, `a` becomes `59048` (the original 1998 interpreter's
   behavior). None of the bundled fixtures ever reach EOF, so this choice
   cannot affect any included result — but cross-implementation comparisons
