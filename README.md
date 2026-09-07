@@ -1,25 +1,25 @@
 # Malbolge Anchuring
 
-Hash-linked deterministic transfer between finite Malbolge processes. Run one
-program to its halt, seal its output with SHA-256, and feed those bytes to
-the next program — but only if the seal matches, bit for bit.
+Transferencia determinista hash-linked entre procesos finitos de Malbolge. Corre un
+programa hasta su halt, sella su output con SHA-256, y alimenta esos bytes al
+siguiente programa — pero solo si el sello concuerda, bit por bit.
 
 ```
-hello.mal  ──run──▶  "Hello World!"  ──seal──▶  sha256
-                                                │  checked
+hello.mal  ──corre──▶  "Hello World!"  ──sella──▶  sha256
+                                                │  verificado
                                                 ▼
-echo12.mal ──run──▶  "Hello World!"  ◀──feed──  (stdin)
+echo12.mal ──corre──▶  "Hello World!"  ◀──alimenta──  (stdin)
 ```
 
-Everything here is plain, single-machine Classic Malbolge. Each program runs
-on a fresh interpreter (registers zeroed, memory rebuilt from the program
-text). The only thing that crosses between two processes is a string of
-bytes, verified bit-exact before it is accepted.
+Todo aqui es Malbolge Clasico plain, de maquina unica. Cada programa corre
+en un interprete nuevo (registros a cero, memoria reconstruida desde el texto
+del programa). Lo unico que cruza entre dos procesos es una cadena de
+bytes, verificado bit-exact antes de ser aceptado.
 
 ## Quickstart
 
 ```bash
-# build the demo chain and seal it
+# construir la demo chain y sellarla
 py anchuring.py run
 ```
 ```
@@ -30,101 +30,101 @@ chain sealed -> fixtures/chain_demo.json
 ```
 
 ```bash
-# replay the whole manifest, re-checking every hash and every run
+# re-ejecutar todo el manifest, re-verificando cada hash y cada run
 py anchuring.py verify fixtures/chain_demo.json
 ```
 ```
-replay OK: 3 links, all seals verified, deterministic
+replay OK: 3 links, todos los sellos verificados, deterministico
 ```
 
 ```bash
-# show that a 1-bit change is rejected
+# mostrar que un cambio de 1 bit es rechazado
 py anchuring.py tamper-demo fixtures/chain_demo.json
 ```
 ```
 sealed payload: b'Hello World!'
 1-bit tampered payload (b'Iello World!') -> REJECTED
-stdout_hex edited without re-sealing -> verify REJECTS (link 0: recorded stdout fails its own seal)
+stdout_hex edited without re-sealing -> verify REJECTS (link 0: stdout registrado falla su propio sello)
 ```
 
-Python 3.10+. No dependencies.
+Python 3.10+. Sin dependencias.
 
-## The pieces
+## Los piezas
 
-| file | what it is |
+| archivo | que es |
 |---|---|
-| `malbolge.py` | self-contained Classic Malbolge interpreter (public 1998/2005 semantics), nothing to install |
-| `anchuring.py` | the harness: run, seal, feed, verify, tamper-demo |
-| `gen_echo.py` | generator for straight-line `[in, out]×n + halt` programs |
-| `fixtures/` | the demo chain manifest and its programs |
-| `FORMAT.md` | the chain manifest format (`malbolge-anchuring/1`), field by field |
+| `malbolge.py` | interprete de Malbolge Clasico autosuficiente (semantica publica 1998/2005), nada que instalar |
+| `anchuring.py` | el harness: correr, sellar, alimentar, verificar, tamper-demo |
+| `gen_echo.py` | generador para programas straight-line `[in, out]×n + halt` |
+| `fixtures/` | el manifest de la demo chain y sus programas |
+| `FORMAT.md` | el formato del manifest de chain (`malbolge-anchuring/1`), campo por campo |
 
-## What this demonstrates
+## Que demuestra esto
 
-- **Bit-exact transport.** The bytes one process emits are delivered to the
-  next one unchanged, and the manifest proves it (`stdin_sha256` of each link
-  equals `stdout_sha256` of the previous one).
-- **Tamper evidence.** Flip one bit of a sealed payload and feeding is
-  rejected before the next program ever runs.
-- **Deterministic replay.** Every link in a sealed manifest can be
-  re-executed from scratch and reproduces status, step count and output
-  exactly. `verify` does this.
-- **A hard per-process budget.** Every process runs with a fixed step
-  allowance ("fuel"). If the allowance runs out first, the status is
-  `OUT_OF_FUEL`, not a halt:
+- **Transport bit-exact.** Los bytes que un proceso emite se entregan al
+  siguiente sin cambios, y el manifest lo demuestra (`stdin_sha256` de cada link
+  es igual a `stdout_sha256` del anterior).
+- **Evidencia de tamper.** Voltea un bit de un payload sellado y la alimentacion es
+  rechazada antes de que el siguiente programa siquiera corra.
+- **Replay deterministico.** Cada link en un manifest sellado puede ser
+  re-ejecutado desde cero y reproduce status, conteo de pasos y output
+  exactamente. `verify` hace esto.
+- **Presupuesto duro por proceso.** Cada proceso corre con un allowance fijo de pasos
+  ("fuel"). Si el allowance se agota primero, el status es
+  `OUT_OF_FUEL`, no un halt:
 
   ```
   fuel=10 on hello.mal -> status=OUT_OF_FUEL steps=10 out=b'Hel'
   ```
 
-## What this does NOT do or claim
+## Que esto NO hace ni reclama
 
-- **It is not process resumption.** Each link is a brand-new Malbolge
-  process. Nothing serializes a machine mid-run; registers and memory start
-  fresh every time. Only output bytes move.
-- **It is not a Turing-completeness device, and no such claim is made.**
-  Every link is a finite computation with a finite budget, and a chain with a
-  fixed budget per link can only carry payloads of bounded size — a fixed
-  composition of finite maps over a bounded payload space is itself a finite
-  iteration. Anchuring changes *who vouches for the bytes*, not what a single
-  Malbolge process can compute.
-- **It is not multi-interpreter arbitrage.** One reference interpreter is
-  included so results are reproducible out of the box; checking the same
-  fixtures against other implementations is left to the reader.
-- **The seals give integrity, not authenticity.** SHA-256 detects any change
-  that does not update the corresponding seal — but an attacker who can
-  rewrite a manifest wholesale can replace both payload and hash and mint a
-  different, self-consistent manifest. That is why the precise term is
-  *hash-linked deterministic transfer*, not "certified". If "certified" ever
-  needs to mean "produced by X and substitutable by no one", the manifest
-  (or a root hash of it) must be *signed*, e.g. with Ed25519. Deliberately
-  out of scope here.
+- **No es reanudacion de procesos.** Cada link es un proceso de Malbolge
+  completamente nuevo. Nada serializa una maquina a mitad de ejecucion; registros y memoria empiezan
+  frescos cada vez. Solo los bytes de output se mueven.
+- **No es un dispositivo de Turing-completeness, y no se hace tal reclamo.**
+  Cada link es una computacion finita con un presupuesto finito, y una cadena con un
+  presupuesto fijo por link solo puede transportar payloads de tamano acotado — una composicion finta
+  de mapas finitos sobre un espacio de payload acotado es ella misma una
+  iteracion finita. Anchuring cambia *quien avala los bytes*, no lo que un solo
+  proceso de Malbolge puede computar.
+- **No es arbitraje multi-interprete.** Un interprete de referencia se
+  incluye para que los resultados sean reproducibles out of the box; verificar los mismos
+  fixtures contra otras implementaciones se le deja al lector.
+- **Los sellos dan integridad, no autenticidad.** SHA-256 detecta cualquier cambio
+  que no actualice el sello correspondiente — pero un atacante que pueda
+  reescribir un manifest completo puede reemplazar tanto payload como hash y crear un
+  manifest diferente y auto-consistente. Por eso el termino preciso es
+  *transferencia determinista hash-linked*, no "certificado". Si "certificado" alguna vez
+  necesita significar "producido por X y insustituible por nadie", el manifest
+  (o un root hash de el) debe ser *firmado*, ej. con Ed25519. Deliberadamente
+  fuera de alcance aqui.
 
-## Semantics notes
+## Notas de semantica
 
-- Classic Malbolge, 59049 cells, 10-trit `crazy`/`rotate`, self-encryption
-  after each executed instruction.
-- The loader enforces the original 1998 load-time validation: every program
-  char must be printable ASCII *and*, at its load position, must decode to
-  one of the eight instructions (`(ord(ch) + pos) % 94 ∈
-  {4, 5, 23, 39, 40, 62, 68, 81}`); programs longer than 59049 cells are
-  rejected outright.
-- On end-of-input, `a` becomes `59048` (the original 1998 interpreter's
-  behavior). None of the bundled fixtures ever reach EOF, so this choice
-  cannot affect any included result — but cross-implementation comparisons
-  should state their EOF convention, because interpreters diverge here.
+- Malbolge Clasico, 59049 celdas, `crazy`/`rotate` de 10 trits, auto-encriptacion
+  despues de cada instruccion ejecutada.
+- El loader impone la validacion original de 1998 en tiempo de carga: cada caracter
+  de programa debe ser ASCII imprimible *y*, en su posicion de carga, debe decodificar a
+  una de las ocho instrucciones (`(ord(ch) + pos) % 94 ∈
+  {4, 5, 23, 39, 40, 62, 68, 81}`); programas de mas de 59049 celdas se
+  rechazan de plano.
+- En fin de input, `a` se convierte en `59048` (el comportamiento del interprete original 1998).
+  Ninguno de los fixtures empaquetados llega a EOF, asi que esta eleccion
+  no puede afectar ningun resultado incluido — pero comparaciones cross-implementation
+  deben declarar su convencion de EOF, porque los interpretes divergen aqui.
 
-## Reproduce from zero
+## Reproducir desde cero
 
 ```bash
-py anchuring.py run            # writes fixtures/chain_demo.json + echo12.mal
+py anchuring.py run            # escribe fixtures/chain_demo.json + echo12.mal
 py anchuring.py verify fixtures/chain_demo.json
 py anchuring.py tamper-demo fixtures/chain_demo.json
 ```
 
-Deleting `fixtures/chain_demo.json` and re-running `run` regenerates the
-identical manifest except for the `created_utc` timestamp.
+Borrar `fixtures/chain_demo.json` y re-ejecutar `run` regenera el
+manifest identico excepto por el timestamp `created_utc`.
 
-## License
+## Licencia
 
 MIT
