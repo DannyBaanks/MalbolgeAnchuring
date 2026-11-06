@@ -1,8 +1,13 @@
-# Malbolge Anchuring
+# Malbolge Anchuring v2.0 — Transferencia Determinista Hash-Linked entre Procesos Malbolge
+
+[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/DannyBaanks/MalbolgeAnchuring)
+[![Deterministic](https://img.shields.io/badge/transfer-SHA--256%20hash--linked-brightgreen.svg)]()
 
 Transferencia determinista hash-linked entre procesos finitos de Malbolge. Corre un
 programa hasta su halt, sella su output con SHA-256, y alimenta esos bytes al
 siguiente programa — pero solo si el sello concuerda, bit por bit.
+
+Parte de la **Suite Experimental de Macroestados y Épocas v2.0** del ecosistema Malbolge de ISyCo.
 
 ```
 hello.mal  ──corre──▶  "Hello World!"  ──sella──▶  sha256
